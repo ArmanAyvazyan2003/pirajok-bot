@@ -1,4 +1,4 @@
-# telegram_bot.py - ВЕРСИЯ С НАСТРАИВАЕМЫМИ КНОПКАМИ
+# app.py - ВЕРСИЯ С НАСТРАИВАЕМЫМИ КНОПКАМИ И GITHUB SECRETS
 import requests
 import time
 import json
@@ -12,24 +12,28 @@ print("=" * 50)
 
 # ================== КОНФИГУРАЦИЯ ==================
 def get_bot_token():
+    """Получение токена бота из переменных окружения GitHub"""
     token = os.getenv('BOT_TOKEN')
-
-    if not token and os.path.exists('.env'):
-        try:
-            with open('.env', 'r') as f:
-                for line in f:
-                    if line.startswith('BOT_TOKEN='):
-                        token = line.split('=', 1)[1].strip()
-                        break
-        except:
-            pass
-
+    
     if not token:
         print("⚠️  Токен бота не найден!")
-        print("Создайте файл .env со строкой: BOT_TOKEN=ваш_токен_здесь")
+        print("Установите переменную окружения BOT_TOKEN")
+        print("На GitHub: Settings → Secrets → BOT_TOKEN")
         exit()
-
+    
     return token
+
+
+def get_admin_id():
+    """Получение ID админа из переменных окружения GitHub"""
+    admin_id = os.getenv('ADMIN_ID')
+    
+    if admin_id:
+        return admin_id
+    
+    # Если ADMIN_ID не установлен в окружении, попробуем получить из конфига
+    print("ℹ️  ADMIN_ID не найден в переменных окружения, проверяю config.json...")
+    return None
 
 
 def load_config():
@@ -53,14 +57,27 @@ CONFIG = load_config()
 # Получаем настройки кнопок из конфига
 BUTTONS = CONFIG['buttons']
 
-# Получаем ID получателя
-RECIPIENT_ID = CONFIG['recipient']['telegram_id']
+# Получаем ID получателя: сначала из окружения, потом из конфига
+ADMIN_FROM_ENV = get_admin_id()
+if ADMIN_FROM_ENV:
+    RECIPIENT_ID = ADMIN_FROM_ENV
+    print(f"✅ Получатель из переменных окружения: ID {RECIPIENT_ID}")
+else:
+    # Проверяем конфиг
+    if 'recipient' in CONFIG and 'telegram_id' in CONFIG['recipient']:
+        RECIPIENT_ID = CONFIG['recipient']['telegram_id']
+        print(f"✅ Получатель из config.json: ID {RECIPIENT_ID}")
+    else:
+        print("❌ Не указан telegram_id получателя!")
+        print("Установите переменную ADMIN_ID в секретах GitHub")
+        print("Или укажите recipient.telegram_id в config.json")
+        exit()
 
-if not RECIPIENT_ID or not RECIPIENT_ID.isdigit():
-    print("❌ В конфиге не указан корректный telegram_id получателя!")
+# Проверяем корректность ID
+if not RECIPIENT_ID or not str(RECIPIENT_ID).isdigit():
+    print(f"❌ Некорректный telegram_id: {RECIPIENT_ID}")
+    print("ID должен содержать только цифры")
     exit()
-
-print(f"✅ Получатель заказов: ID {RECIPIENT_ID}")
 
 # ================== ПРОВЕРКА БОТА ==================
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
@@ -91,7 +108,7 @@ print(f"📋 Кнопка 'Меню': {BUTTONS['menu']}")
 print(f"🚚 Кнопка 'Доставка': {BUTTONS['delivery']}")
 print(f"🛒 Кнопка 'Заказать': {BUTTONS['order']}")
 print("=" * 50)
-print("🚀 Бот запущен!")
+print("🚀 Бот запущен! (версия с GitHub Secrets)")
 print("⏹️  Ctrl+C для остановки")
 print("=" * 50)
 
@@ -286,11 +303,8 @@ try:
                         # КОМАНДЫ - сравниваем с кнопками из конфига
                         if text == '/start':
                             user_states.pop(chat_id, None)
-                            send_message(chat_id,
-                                         f"👋 Привет, {name}!\n\n"
-                                         f"Добро пожаловать в PIRAJOK 🍔\n"
-                                         f"Выберите действие:",
-                                         get_main_keyboard())
+                            welcome_msg = f"👋 Привет, {name}!\n\nДобро пожаловать в PIRAJOK 🍔\nВыберите действие:"
+                            send_message(chat_id, welcome_msg, get_main_keyboard())
 
                         elif text == BUTTONS['menu']:
                             send_message(chat_id, get_menu_text())
