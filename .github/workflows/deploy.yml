@@ -1,0 +1,54 @@
+name: 🚀 Deploy PIRAJOK Bot
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 */6 * * *'  # Каждые 6 часов
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+    
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: 📦 Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: 🔧 Test bot
+      env:
+        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        ADMIN_ID: ${{ secrets.ADMIN_ID }}
+      run: |
+        echo "🤖 Testing PIRAJOK Bot..."
+        echo "Token: ${BOT_TOKEN:0:15}..."
+        echo "Admin: $ADMIN_ID"
+        
+        # Проверяем импорты
+        python -c "import telebot; import flask; print('✅ All imports OK')"
+        
+        # Проверяем синтаксис
+        python -m py_compile app.py && echo "✅ Syntax OK"
+    
+    - name: 📊 Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bot-files
+        path: |
+          *.py
+          *.txt
+          Procfile
+        retention-days: 30
+    
+    - name: 🎉 Success
+      run: echo "✅ PIRAJOK Bot готов к работе! Отправьте /start боту"
